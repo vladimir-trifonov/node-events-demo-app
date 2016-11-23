@@ -1,65 +1,104 @@
 /* global jQuery, Rx, io */
 (function ($, Rx) {
 	function initBotsControls(socket) {
-		function toggleButton(e) {
-			$(e.currentTarget).toggleClass('active');
-			return e;
+		//
+		// Util functions
+		//
+		function toggleButton(target) {
+			$(target).toggleClass('active');
+			return target;
 		}
 
-		function getBotName(e) {
-			return $(e.currentTarget).data('name');
+		function getBotName(target) {
+			return $(target).data('name');
 		}
 
 		function getBotState(name) {
+			var state = $('.' + name).data('state') || 'stop';
 			return {
 				name: name,
-				state: $('.' + name).data('state') || 'stop'
+				action: state === 'animate' ? 'stop' : 'animate'
 			};
 		}
 
 		function animateBot(botInfo) {
-			var state = null;
-			switch (botInfo.state) {
-				case 'animate':
-					$('.' + botInfo.name).animateSprite('stop');
-					state = 'stop';
-					break;
+			var $bot = $('.' + botInfo.name);
+			switch (botInfo.action) {
 				case 'stop':
-					$('.' + botInfo.name).animateSprite('play', 'animate');
-					state = 'animate';
+					$bot.animateSprite('play', 'stop');
+					break;
+				case 'animate':
+					$bot.animateSprite('play', 'animate');
 					break;
 			}
 
 			return {
 				name: botInfo.name,
-				state: state
+				state: botInfo.action
 			};
 		}
 
-		var srcBtn = Rx.Observable.fromEvent(document.getElementsByClassName('button'), 'click');
+		function setButton(botInfo) {
+			var btn = $('.button[data-name=' + botInfo.name + ']');
+			botInfo.action === 'animate' && btn.addClass('active');
+			botInfo.action === 'stop' && btn.removeClass('active');
+
+			return botInfo;
+		}
+
+		function setBotState(botInfo) {
+			$('.' + botInfo.name).data('state', botInfo.state);
+		}
+
+		function notify(botInfo) {
+			$.post("/bots/" + botInfo.name + '/actions/' + botInfo.state, {
+				user: socket.id
+			});
+		}
+
+		//
+    // Sockets source flow
+		//
 		var srcWS = Rx.Observable.fromEventPattern(
-			function add (h) {
+			function add(h) {
 				socket.on('animate', h);
 			}
 		);
 
-		var btnObservable = srcBtn.map(toggleButton);
-		var botObservable = srcBtn.map(getBotName)
+		srcWS
+			.filter(function (data) {
+				return data.sender !== socket.id;
+			})
+			.map(setButton)
+			.map(animateBot)
+			.subscribe(setBotState);
+
+		//
+		// Button click source flow
+		//
+		var srcBtn = Rx.Observable.fromEvent(document.getElementsByClassName('button'), 'click')
+			.map(function (e) {
+				return e.currentTarget;
+			});
+
+		var btnObservable = srcBtn
+			.map(toggleButton);
+
+		var botObservable = srcBtn
+			.map(getBotName)
 			.map(getBotState)
 			.map(animateBot);
 
-		var source = Rx.Observable.combineLatest(
+		var source = Rx.Observable.zip(
 			btnObservable,
 			botObservable
 		);
 
-		var setBotState = function(options) {
+		source.subscribe(function (options) {
 			var botInfo = options[1];
-			$('.' + botInfo.name).data('state', botInfo.state);
-		}
-
-		// Subscribe to btn event click
-		source.subscribe(setBotState);
+			setBotState(botInfo);
+			notify(botInfo);
+		});
 	}
 
 	function initBotsAnimations(bots) {
