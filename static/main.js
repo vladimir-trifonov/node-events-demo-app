@@ -90,6 +90,7 @@
 				return botInfo;
 			})
 			.subscribe(function (botInfo) {
+				botInfo.state = botInfo.action;
 				setBotState(botInfo);
 				setMusic();
 			});
@@ -172,6 +173,10 @@
 		var socket = initSocketIO();
 		initBotsControls(socket);
 
-		audio = new Audio('music.mp3');
+		audio = new Audio('music-trimmed.m4a');
+		audio.addEventListener('ended', function() {
+			this.currentTime = 0;
+			this.play();
+		}, false);
 	});
 })(jQuery, Rx, io);

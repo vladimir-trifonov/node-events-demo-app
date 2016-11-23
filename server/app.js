@@ -16,6 +16,11 @@ server.listen(8000, function() {
 io.on('connection', function (socket) {
   socket.send(socket.id);
 
+  var lastState = bot.getLastState();
+  Object.keys(lastState).forEach(function(botName) {
+    socket.emit('animate', { sender: null, name: botName, action: lastState[botName]});
+  });
+
   bot.on('animate', function(data) {
     socket.emit('animate', data);
   });
