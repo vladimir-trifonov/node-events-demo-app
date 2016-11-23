@@ -16,14 +16,21 @@ server.listen(8000, function () {
 io.on('connection', function (socket) {
   socket.send(socket.id);
 
-  // Notify the new user about the last state of the bots
-  var lastState = bot.getLastState();
-  Object.keys(lastState).forEach(function (botName) {
-    socket.emit('animate', { sender: null, name: botName, action: lastState[botName] });
-  });
+  // Notify the new user about the last state of the bots(if it's 'dance' only)
+  initState(bot.getLastState());
 });
 
 // Broadcast the bot's state
 bot.on('animate', function (data) {
   io.sockets.emit('animate', data);
 });
+
+function initState(state) {
+  Object.keys(state)
+    .filter(function (botName) {
+      return state[botName] === 'dance';
+    })
+    .forEach(function (botName) {
+      socket.emit('animate', { sender: null, name: botName, action: 'dance' });
+    });
+}

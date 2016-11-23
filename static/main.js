@@ -15,30 +15,17 @@
 		}
 
 		function getBotState(name) {
-			return $('.' + name).data('state') || 'stop';
+			return $('.' + name).data('state') || 'chill';
 		}
 
 		function animateBot(botAction) {
-			var $bot = $('.' + botAction.name);
-			switch (botAction.action) {
-				case 'stop':
-					$bot.animateSprite('play', 'stop');
-					break;
-				case 'animate':
-					$bot.animateSprite('play', 'animate');
-					break;
-			}
-
-			return {
-				name: botAction.name,
-				state: botAction.action
-			};
+			$('.' + botAction.name).animateSprite('play', botAction.action);
 		}
 
-		function setButtonState(botState) {
-			var btn = $('.button[data-name=' + botState.name + ']');
+		function setButton(botAction) {
+			var btn = $('.button[data-name=' + botAction.name + ']');
 			// Similar to the ternary operator(alternative)
-			botState.action === 'animate' && btn.addClass('active') || btn.removeClass('active');
+			botAction.action === 'dance' && btn.addClass('active') || btn.removeClass('active');
 		}
 
 		function playMusic(play) {
@@ -53,11 +40,11 @@
 				})
 				.toArray()
 				.some(function (state) {
-					return state === 'animate';
+					return state === 'dance';
 				});
 		}
 
-		function setBotState(botState) {
+		function saveBotState(botState) {
 			$('.' + botState.name).data('state', botState.state);
 		}
 
@@ -68,17 +55,18 @@
 		}
 
 		// Animate bot and play music
-		function play(botAction) {
+		function playBot(botAction) {
 			// Animate the bot
-			var botState = animateBot(botAction);
+			animateBot(botAction);
 
-			// Save the current bot's state
-			setBotState(botState);
+			// Save the state
+			saveBotState({
+				name: botAction.name,
+				state: botAction.action
+			});
 
 			// Play music
 			playMusic(hasAnimatedBot());
-
-			return botState;
 		}
 
 		//
@@ -99,10 +87,12 @@
 				}
 			});
 
-		srcWS.subscribe(setButtonState);
+		// Set button on/off
+		srcWS.subscribe(setButton);
 
+		// Animate the bot
 		srcWS
-			.subscribe(play);
+			.subscribe(playBot);
 
 		//
 		// Button click source flow
@@ -112,24 +102,34 @@
 				return e.currentTarget;
 			});
 
+		// Set button on/off
 		srcBtn
 			.subscribe(toggleButtonState);
 
+		// Animate the bot
 		srcBtn
 			.map(function (target) {
 				var name = getBotName(target);
 				var state = getBotState(name);
 				return {
 					name: name,
-					action: state === 'animate' ? 'stop' : 'animate'
+					action: state === 'dance' ? 'chill' : 'dance'
 				}
 			})
-			.map(play)
-			.subscribe(notify);
+			.subscribe(function (botAction) {
+				playBot(botAction);
+
+				// Notify about the changed bot's state through a web socket
+				notify({
+					name: botAction.name,
+					state: botAction.action
+				});
+			});
 	}
 
 	function initBotsAnimations(bots) {
 		function genRange(cnt) {
+			// Create a range array
 			return Array.apply(null, Array(cnt)).map(function (val, idx) {
 				return idx;
 			});
@@ -140,8 +140,8 @@
 				fps: 12,
 				columns: 60,
 				animations: {
-					stop: [0],
-					animate: bot.animateFrames
+					chill: [0],
+					dance: bot.animateFrames
 				},
 				loop: true
 			});
