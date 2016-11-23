@@ -6,7 +6,7 @@
 		//
 		// Util functions
 		//
-		function toggleButton(target) {
+		function toggleButtonState(target) {
 			$(target).toggleClass('active');
 		}
 
@@ -35,25 +35,27 @@
 			};
 		}
 
-		function setButton(botInfo) {
+		function setButtonState(botInfo) {
 			var btn = $('.button[data-name=' + botInfo.name + ']');
-			botInfo.action === 'animate' && btn.addClass('active');
-			botInfo.action === 'stop' && btn.removeClass('active');
+			// Similar to the ternary operator(alternative)
+			botInfo.action === 'animate' && btn.addClass('active') || btn.removeClass('active');
 		}
 
 		function playMusic() {
 			var hasAnimated = hasAnimatedBot() || false;
+			// Ternary operator
 			hasAnimated ? audio.play() : audio.pause();
 		}
 
 		function hasAnimatedBot() {
-			var someIsPlaying = false;
-			$('.bot').each(function (i, el) {
-				if ($(el).data('state') === 'animate') {
-					someIsPlaying = true;
-				}
-			});
-			return someIsPlaying;
+			return $('.bot')
+				.map(function (i, el) {
+					return $(el).data('state');
+				})
+				.toArray()
+				.some(function (state) {
+					return state === 'animate';
+				});
 		}
 
 		function setBotState(botInfo) {
@@ -77,7 +79,7 @@
 			return data.sender !== socket.id;
 		});
 
-		srcWS.subscribe(setButton);
+		srcWS.subscribe(setButtonState);
 
 		srcWS
 			.subscribe(function (botInfo) {
@@ -99,10 +101,10 @@
 				return e.currentTarget;
 			});
 
-		var btnObservable = srcBtn
-			.subscribe(toggleButton);
+		srcBtn
+			.subscribe(toggleButtonState);
 
-		var botObservable = srcBtn
+		srcBtn
 			.map(function (target) {
 				var name = getBotName(target);
 				var state = getBotState(name);
@@ -159,6 +161,15 @@
 		return io.connect();
 	}
 
+	function initAudio(fn) {
+		audio = new Audio(fn);
+		// Replay music - play in loop
+		audio.addEventListener('ended', function () {
+			this.currentTime = 0;
+			this.play();
+		}, false);
+	}
+
 	// Main
 	$(function () {
 		initBotsAnimations([{
@@ -174,11 +185,6 @@
 
 		var socket = initSocketIO();
 		initBotsControls(socket);
-
-		audio = new Audio('music-trimmed.m4a');
-		audio.addEventListener('ended', function () {
-			this.currentTime = 0;
-			this.play();
-		}, false);
+		initAudio('music-trimmed.m4a');
 	});
 })(jQuery, Rx, io);
