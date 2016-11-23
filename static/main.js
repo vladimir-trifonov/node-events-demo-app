@@ -8,7 +8,6 @@
 		//
 		function toggleButton(target) {
 			$(target).toggleClass('active');
-			return target;
 		}
 
 		function getBotName(target) {
@@ -16,11 +15,7 @@
 		}
 
 		function getBotState(name) {
-			var state = $('.' + name).data('state') || 'stop';
-			return {
-				name: name,
-				action: state === 'animate' ? 'stop' : 'animate'
-			};
+			return $('.' + name).data('state') || 'stop';
 		}
 
 		function animateBot(botInfo) {
@@ -46,7 +41,7 @@
 			botInfo.action === 'stop' && btn.removeClass('active');
 		}
 
-		function setMusic() {
+		function playMusic() {
 			var hasAnimated = hasAnimatedBot() || false;
 			hasAnimated ? audio.play() : audio.pause();
 		}
@@ -78,21 +73,22 @@
 			function add(h) {
 				socket.on('animate', h);
 			}
-		);
+		).filter(function (data) {
+			return data.sender !== socket.id;
+		});
+
+		srcWS.subscribe(setButton);
 
 		srcWS
-			.filter(function (data) {
-				return data.sender !== socket.id;
-			})
-			.map(function(botInfo) {
-				setButton(botInfo);
-				animateBot(botInfo);
-				return botInfo;
-			})
 			.subscribe(function (botInfo) {
-				botInfo.state = botInfo.action;
+				// Animate the bot
+				botInfo = animateBot(botInfo);
+
+				// Save the current bot's state
 				setBotState(botInfo);
-				setMusic();
+
+				// Play music
+				playMusic();
 			});
 
 		//
@@ -104,24 +100,30 @@
 			});
 
 		var btnObservable = srcBtn
-			.map(toggleButton);
+			.subscribe(toggleButton);
 
 		var botObservable = srcBtn
-			.map(getBotName)
-			.map(getBotState)
-			.map(animateBot);
+			.map(function (target) {
+				var name = getBotName(target);
+				var state = getBotState(name);
+				return {
+					name: name,
+					action: state === 'animate' ? 'stop' : 'animate'
+				}
+			})
+			.subscribe(function (botInfo) {
+				// Animate the bot
+				botInfo = animateBot(botInfo);
 
-		var source = Rx.Observable.zip(
-			btnObservable,
-			botObservable
-		);
+				// Save the current bot's state
+				setBotState(botInfo);
 
-		source.subscribe(function (options) {
-			var botInfo = options[1];
-			setBotState(botInfo);
-			notify(botInfo);
-			setMusic();
-		});
+				// Send post request to notify about the changed state in bot's behaviour
+				notify(botInfo);
+
+				// Play music
+				playMusic();
+			});
 	}
 
 	function initBotsAnimations(bots) {
@@ -174,7 +176,7 @@
 		initBotsControls(socket);
 
 		audio = new Audio('music-trimmed.m4a');
-		audio.addEventListener('ended', function() {
+		audio.addEventListener('ended', function () {
 			this.currentTime = 0;
 			this.play();
 		}, false);
