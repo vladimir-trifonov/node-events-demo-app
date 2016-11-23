@@ -18,9 +18,9 @@
 			return $('.' + name).data('state') || 'stop';
 		}
 
-		function animateBot(botInfo) {
-			var $bot = $('.' + botInfo.name);
-			switch (botInfo.action) {
+		function animateBot(botAction) {
+			var $bot = $('.' + botAction.name);
+			switch (botAction.action) {
 				case 'stop':
 					$bot.animateSprite('play', 'stop');
 					break;
@@ -30,21 +30,20 @@
 			}
 
 			return {
-				name: botInfo.name,
-				state: botInfo.action
+				name: botAction.name,
+				state: botAction.action
 			};
 		}
 
-		function setButtonState(botInfo) {
-			var btn = $('.button[data-name=' + botInfo.name + ']');
+		function setButtonState(botState) {
+			var btn = $('.button[data-name=' + botState.name + ']');
 			// Similar to the ternary operator(alternative)
-			botInfo.action === 'animate' && btn.addClass('active') || btn.removeClass('active');
+			botState.action === 'animate' && btn.addClass('active') || btn.removeClass('active');
 		}
 
-		function playMusic() {
-			var hasAnimated = hasAnimatedBot() || false;
+		function playMusic(play) {
 			// Ternary operator
-			hasAnimated ? audio.play() : audio.pause();
+			play ? audio.play() : audio.pause();
 		}
 
 		function hasAnimatedBot() {
@@ -58,14 +57,28 @@
 				});
 		}
 
-		function setBotState(botInfo) {
-			$('.' + botInfo.name).data('state', botInfo.state);
+		function setBotState(botState) {
+			$('.' + botState.name).data('state', botState.state);
 		}
 
-		function notify(botInfo) {
-			$.post("/bots/" + botInfo.name + '/actions/' + botInfo.state, {
+		function notify(botState) {
+			$.post("/bots/" + botState.name + '/actions/' + botState.state, {
 				user: socket.id
 			});
+		}
+
+		// Animate bot and play music
+		function play(botAction) {
+			// Animate the bot
+			var botState = animateBot(botAction);
+
+			// Save the current bot's state
+			setBotState(botState);
+
+			// Play music
+			playMusic(hasAnimatedBot());
+
+			return botState;
 		}
 
 		//
@@ -75,23 +88,21 @@
 			function add(h) {
 				socket.on('animate', h);
 			}
-		).filter(function (data) {
-			return data.sender !== socket.id;
-		});
+		)
+			.filter(function (data) {
+				return data.sender !== socket.id;
+			})
+			.map(function (botInfo) {
+				return {
+					name: botInfo.name,
+					action: botInfo.action
+				}
+			});
 
 		srcWS.subscribe(setButtonState);
 
 		srcWS
-			.subscribe(function (botInfo) {
-				// Animate the bot
-				botInfo = animateBot(botInfo);
-
-				// Save the current bot's state
-				setBotState(botInfo);
-
-				// Play music
-				playMusic();
-			});
+			.subscribe(play);
 
 		//
 		// Button click source flow
@@ -113,19 +124,8 @@
 					action: state === 'animate' ? 'stop' : 'animate'
 				}
 			})
-			.subscribe(function (botInfo) {
-				// Animate the bot
-				botInfo = animateBot(botInfo);
-
-				// Save the current bot's state
-				setBotState(botInfo);
-
-				// Send post request to notify about the changed state in bot's behaviour
-				notify(botInfo);
-
-				// Play music
-				playMusic();
-			});
+			.map(play)
+			.subscribe(notify);
 	}
 
 	function initBotsAnimations(bots) {
