@@ -1,5 +1,7 @@
 /* global jQuery, Rx, io */
 (function ($, Rx) {
+	var audio = null;
+
 	function initBotsControls(socket) {
 		//
 		// Util functions
@@ -42,8 +44,21 @@
 			var btn = $('.button[data-name=' + botInfo.name + ']');
 			botInfo.action === 'animate' && btn.addClass('active');
 			botInfo.action === 'stop' && btn.removeClass('active');
+		}
 
-			return botInfo;
+		function setMusic() {
+			var hasAnimated = hasAnimatedBot() || false;
+			hasAnimated ? audio.play() : audio.pause();
+		}
+
+		function hasAnimatedBot() {
+			var someIsPlaying = false;
+			$('.bot').each(function (i, el) {
+				if ($(el).data('state') === 'animate') {
+					someIsPlaying = true;
+				}
+			});
+			return someIsPlaying;
 		}
 
 		function setBotState(botInfo) {
@@ -57,7 +72,7 @@
 		}
 
 		//
-    // Sockets source flow
+		// Sockets source flow
 		//
 		var srcWS = Rx.Observable.fromEventPattern(
 			function add(h) {
@@ -69,9 +84,15 @@
 			.filter(function (data) {
 				return data.sender !== socket.id;
 			})
-			.map(setButton)
-			.map(animateBot)
-			.subscribe(setBotState);
+			.map(function(botInfo) {
+				setButton(botInfo);
+				animateBot(botInfo);
+				return botInfo;
+			})
+			.subscribe(function (botInfo) {
+				setBotState(botInfo);
+				setMusic();
+			});
 
 		//
 		// Button click source flow
@@ -98,6 +119,7 @@
 			var botInfo = options[1];
 			setBotState(botInfo);
 			notify(botInfo);
+			setMusic();
 		});
 	}
 
@@ -149,5 +171,7 @@
 
 		var socket = initSocketIO();
 		initBotsControls(socket);
+
+		audio = new Audio('music.mp3');
 	});
 })(jQuery, Rx, io);
