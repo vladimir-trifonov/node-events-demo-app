@@ -1,5 +1,5 @@
 /* global jQuery, Rx, io */
-(function ($, Rx) {
+(function ($, Rx, io) {
 	var audio = null;
 
 	function initBotsControls(socket) {
