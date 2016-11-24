@@ -49,7 +49,7 @@
 		}
 
 		function notify(botState) {
-			$.post("/bots/" + botState.name + '/actions/' + botState.state, {
+			$.post("/bots/" + botState.name + '/actions/' + botState.action, {
 				user: socket.id
 			});
 		}
@@ -117,13 +117,11 @@
 				}
 			})
 			.subscribe(function (botAction) {
+				// Animate the bot
 				playBot(botAction);
 
 				// Notify about the changed bot's state through a web socket
-				notify({
-					name: botAction.name,
-					state: botAction.action
-				});
+				notify(botAction);
 			});
 	}
 
