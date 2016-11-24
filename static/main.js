@@ -136,7 +136,6 @@
 		function initBotAnimation(bot) {
 			$('.' + bot.name).animateSprite({
 				fps: 12,
-				columns: 60,
 				animations: {
 					chill: [0],
 					dance: bot.animateFrames
