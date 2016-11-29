@@ -167,6 +167,7 @@ body {
 }
 
 .pinko {
+	transform: scale(1.5);
 	background-image: url(img/pinko.png);
 }
 

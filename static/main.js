@@ -182,6 +182,6 @@
 
 		var socket = initSocketIO();
 		initBotsControls(socket);
-		initAudio('music-trimmed.m4a');
+		initAudio('music.mp3');
 	});
 })(jQuery, Rx, io);
